@@ -42,6 +42,8 @@
     .ok{color:var(--ok)} .bad{color:var(--bad)}
     .build-grid{display:grid;grid-template-columns:repeat(4,minmax(56px,1fr));gap:8px}
     .slice-toggle[aria-pressed="true"]{background:#ffd8ab;border-color:#d07a2a}
+    .pizza-slice.selectable{cursor:pointer}
+    .pizza-slice.selected{filter:saturate(1.1)}
     .compact{display:none}
     details.panel{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:8px;background:#fffefc}
     details.panel summary{cursor:pointer;font-weight:700}
@@ -131,11 +133,12 @@
           <div class="answer-dock" id="answerDock">
             <div class="answer-scroll" id="answerScroll">
               <div class="opts" id="opts"></div>
-              <div class="build-grid" id="buildGrid" style="display:none"></div>
             </div>
+            <button id="cutPizza" style="display:none">Cortar (+1 fatia)</button>
             <button class="cta" id="checkBuild" style="display:none">Conferir montagem</button>
             <button class="cta" id="next" style="display:none">Próxima rodada</button>
             <button class="cta" id="restart" style="display:none">Jogar de novo</button>
+            <button id="leaveMatch" style="display:none">Sair da partida</button>
           </div>
           <p class="reward" id="reward"></p>
           <p class="tips">Dica rápida: compare o tamanho das fatias.</p>
@@ -190,7 +193,7 @@ function applyTheme(id){
   el('theme').textContent=t.name;
 }
 
-function drawPizza(total,filled,selected=[]){
+function drawPizza(total,filled,selected=[],onSliceClick=null){
   const svg=el('pizza'); svg.innerHTML='';
   const cx=100,cy=100,r=85;
   for(let i=0;i<total;i++){
@@ -202,6 +205,12 @@ function drawPizza(total,filled,selected=[]){
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d',`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`);
     path.setAttribute('fill',color); path.setAttribute('stroke','var(--crust)'); path.setAttribute('stroke-width','1.2');
+    path.classList.add('pizza-slice');
+    if(active) path.classList.add('selected');
+    if(typeof onSliceClick==='function'){
+      path.classList.add('selectable');
+      path.addEventListener('click',()=>onSliceClick(i));
+    }
     svg.appendChild(path);
   }
   const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
@@ -262,36 +271,44 @@ function startRoundA(){
   });
 }
 
+function renderModeBPizza(){
+  const cur=state.current;
+  drawPizza(cur.pieces,0,cur.selected,(sliceIndex)=>{
+    if(!state.questionActive||state.mode!=='B') return;
+    const idx=cur.selected.indexOf(sliceIndex);
+    if(idx>=0) cur.selected.splice(idx,1);
+    else cur.selected.push(sliceIndex);
+    cur.selected.sort((a,b)=>a-b);
+    renderModeBPizza();
+  });
+}
+
 function startRoundB(){
   const f=randomFraction();
-  state.current={...f,selected:[]};
+  state.current={...f,pieces:1,selected:[]};
   state.answer=f.s;
-  drawPizza(f.d,0,[]);
-  showPrompt(`Monte esta fração na pizza: <b>${f.n}/${f.d}</b>`, true);
+  renderModeBPizza();
+  showPrompt(`Monte esta fração: <b>${f.n}/${f.d}</b><br><small>1) Toque em <b>Cortar</b> até ter ${f.d} fatias.<br>2) Toque nas fatias para selecionar ${f.n}.</small>`, true);
   setOptionLayout(0);
-  el('buildGrid').style.display='grid';
+  el('cutPizza').style.display='inline-block';
   el('checkBuild').style.display='inline-block';
-  el('buildGrid').innerHTML='';
-  for(let i=0;i<f.d;i++){
-    const bt=document.createElement('button');
-    bt.className='slice-toggle'; bt.textContent=`Fatia ${i+1}`; bt.setAttribute('aria-pressed','false');
-    bt.onclick=()=>{
-      const idx=state.current.selected.indexOf(i);
-      if(idx>=0) state.current.selected.splice(idx,1); else state.current.selected.push(i);
-      bt.setAttribute('aria-pressed', state.current.selected.includes(i)?'true':'false');
-      drawPizza(f.d,0,state.current.selected);
-    };
-    el('buildGrid').appendChild(bt);
-  }
 }
 
 function equivalentOptions(n,d){
   const target=simplify(n,d);
-  const out=new Set([target]);
-  const multipliers=[2,3,4];
-  multipliers.forEach(m=>{ if(d*m<=16) out.add(`${n*m}/${d*m}`); });
-  while(out.size<4){ const fake=randomFraction(); if(simplify(fake.n,fake.d)!==target) out.add(`${fake.n}/${fake.d}`); }
-  return [...out].slice(0,4).sort(()=>Math.random()-0.5);
+  const multipliers=[1,2,3,4].filter(m=>d*m<=16);
+  const k=multipliers[Math.floor(Math.random()*multipliers.length)];
+  const correct=`${n*k}/${d*k}`;
+  const distractors=[];
+  while(distractors.length<3){
+    const fake=randomFraction();
+    const raw=`${fake.n}/${fake.d}`;
+    if(raw===correct) continue;
+    if(simplify(fake.n,fake.d)===target) continue;
+    if(distractors.includes(raw)) continue;
+    distractors.push(raw);
+  }
+  return [correct,...distractors].sort(()=>Math.random()-0.5);
 }
 
 function startRoundC(){
@@ -313,8 +330,7 @@ function startRoundC(){
 function hideRoundUi(){
   el('opts').innerHTML='';
   setOptionLayout(0);
-  el('buildGrid').style.display='none';
-  el('buildGrid').innerHTML='';
+  el('cutPizza').style.display='none';
   el('checkBuild').style.display='none';
 }
 
@@ -332,7 +348,7 @@ function newRound(){
 function feedbackExplanation(){
   if(!state.current) return '';
   if(state.mode==='A') return `A pizza destacada representa ${state.current.n}/${state.current.d}.`;
-  if(state.mode==='B') return `A montagem correta era selecionar ${state.current.n} de ${state.current.d} fatias.`;
+  if(state.mode==='B') return `A montagem correta era ${state.current.d} fatias com ${state.current.n} selecionadas.`;
   return `A forma simplificada correta é ${simplify(state.current.n,state.current.d)}.`;
 }
 
@@ -369,11 +385,19 @@ function answerChoice(v){
   if(state.round<=state.maxRounds) el('next').style.display='inline-block'; else endGame();
 }
 
+function cutPizza(){
+  if(!state.questionActive||state.mode!=='B') return;
+  const cur=state.current;
+  if(cur.pieces>=cur.d) return;
+  cur.pieces+=1;
+  cur.selected=cur.selected.filter(i=>i<cur.pieces);
+  renderModeBPizza();
+}
+
 function checkBuild(){
   if(!state.questionActive||state.mode!=='B') return;
   state.questionActive=false;
-  const correct = state.current.selected.length===state.current.n;
-  [...el('buildGrid').children].forEach(b=>b.disabled=true);
+  const correct = state.current.pieces===state.current.d && state.current.selected.length===state.current.n;
   reward(correct);
   state.round++; updateHud();
   if(state.round<=state.maxRounds) el('next').style.display='inline-block'; else endGame();
@@ -397,12 +421,29 @@ function endGame(timeout=false){
   showFeedback(state.score>=70?'⭐ Mandou muito!':'Boa partida! Bora tentar mais uma?', true);
   el('next').style.display='none';
   el('restart').style.display='inline-block';
+  el('leaveMatch').style.display='none';
+}
+
+function leaveMatch(){
+  clearInterval(timer);
+  state={...state,round:1,maxRounds:8,score:0,combo:0,time:60,over:false,answer:null,current:null,playing:false,questionActive:false};
+  hideRoundUi();
+  el('next').style.display='none';
+  el('restart').style.display='none';
+  el('leaveMatch').style.display='none';
+  el('start').style.display='inline-block';
+  el('reward').textContent='';
+  setMobileLock(false);
+  drawPizza(4,2);
+  showPrompt('Escolha um modo e clique em <b>Começar partida</b>.', true);
+  updateHud();
 }
 
 function resetGame(){
   state={...state,round:1,maxRounds:8,score:0,combo:0,time:60,over:false,answer:null,playing:true,questionActive:false};
   el('reward').textContent='';
   el('restart').style.display='none';
+  el('leaveMatch').style.display='inline-block';
   el('start').style.display='none';
   setMobileLock(true);
   updateHud();
@@ -413,6 +454,8 @@ function resetGame(){
 el('start').onclick=resetGame;
 el('next').onclick=()=>newRound();
 el('restart').onclick=resetGame;
+el('leaveMatch').onclick=leaveMatch;
+el('cutPizza').onclick=cutPizza;
 el('checkBuild').onclick=checkBuild;
 document.querySelectorAll('.mode-btn').forEach(btn=>btn.onclick=()=>{if(state.playing&&!state.over) return; state.mode=btn.dataset.mode; renderModeButtons();});
 

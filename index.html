@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pizzaria das Frações</title>
+  <style>
+    :root{--bg:#fff8ef;--card:#ffffff;--text:#2b1d0e;--muted:#7a6856;--accent:#ff7a00;--ok:#1f9d55;--bad:#d64545;--line:#f1dfcd}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#fff8ef 0%,#ffeeda 100%);color:var(--text)}
+    .wrap{max-width:920px;margin:0 auto;padding:20px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+    h1{margin:0 0 6px;font-size:clamp(1.4rem,2vw,2rem)}
+    .sub{margin:0;color:var(--muted)}
+    .intro{display:flex;gap:10px;align-items:center;margin:12px 0 4px;padding:10px;border:1px dashed #efc9a4;border-radius:12px;background:#fff9f2}
+    .intro p{margin:0;color:#6c533a;font-size:.95rem}
+    .hud{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+    .chip{background:#fff;border:1px solid var(--line);padding:10px;border-radius:12px;text-align:center}
+    .chip b{display:block;font-size:1.2rem}
+    .progress{height:10px;background:#ffe5cc;border-radius:999px;overflow:hidden;margin:4px 0 14px}
+    .bar{height:100%;width:0;background:linear-gradient(90deg,#ff9d3f,#ff7a00)}
+    .game{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:center}
+    .pizza{width:min(320px,80vw);aspect-ratio:1;margin:auto;display:block}
+    .ask{font-size:1.2rem;margin-bottom:10px}
+    .opts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    button{padding:12px 14px;border-radius:12px;border:1px solid #efc9a4;background:#fff;cursor:pointer;font-weight:700}
+    button:hover{transform:translateY(-1px)}
+    .cta{background:var(--accent);color:#fff;border:none}
+    .feedback{min-height:30px;font-weight:700;margin-top:10px}
+    .ok{color:var(--ok)} .bad{color:var(--bad)}
+    .tips{margin-top:14px;color:var(--muted);font-size:.95rem}
+    @media (max-width:760px){.hud{grid-template-columns:1fr 1fr}.game{grid-template-columns:1fr}.opts{grid-template-columns:1fr}.intro{flex-direction:column;align-items:flex-start}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>🍕 Pizzaria das Frações</h1>
+      <p class="sub">Atenda pedidos de pizza com a fração certa. Rápido, simples e divertido!</p>
+      <div class="intro">
+        <button class="cta" id="start">Começar partida</button>
+        <p>Você tem 45s no total. O relógio pausa entre rodadas para você respirar 😉</p>
+      </div>
+      <div class="hud">
+        <div class="chip">Rodada <b id="round">1/8</b></div>
+        <div class="chip">Pontos <b id="score">0</b></div>
+        <div class="chip">Combo <b id="combo">0🔥</b></div>
+        <div class="chip">Tempo <b id="time">45s</b></div>
+      </div>
+      <div class="progress"><div class="bar" id="bar"></div></div>
+      <div class="game">
+        <svg class="pizza" viewBox="0 0 200 200" id="pizza"></svg>
+        <div>
+          <div class="ask" id="ask">Clique em <b>Começar partida</b> para receber o 1º pedido.</div>
+          <div class="opts" id="opts"></div>
+          <p id="feedback" class="feedback"></p>
+          <button class="cta" id="next" style="display:none">Próxima rodada</button>
+          <button class="cta" id="restart" style="display:none">Jogar de novo</button>
+          <p class="tips">Dica: compare numerador e denominador visualmente na pizza.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script>
+const sets=[2,3,4,6,8];
+let state={round:1,maxRounds:8,score:0,combo:0,time:45,over:false,answer:null,playing:false,questionActive:false};
+let timer;
+const el=id=>document.getElementById(id);
+
+function gcd(a,b){while(b)[a,b]=[b,a%b];return a}
+function simplify(n,d){const g=gcd(n,d);return `${n/g}/${d/g}`}
+function formatFraction(n,d){return `${n}/${d}`}
+function drawPizza(total,filled){
+  const svg=el('pizza'); svg.innerHTML='';
+  const cx=100,cy=100,r=85;
+  for(let i=0;i<total;i++){
+    const a1=(i/total)*Math.PI*2-Math.PI/2, a2=((i+1)/total)*Math.PI*2-Math.PI/2;
+    const x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1), x2=cx+r*Math.cos(a2), y2=cy+r*Math.sin(a2);
+    const large=(a2-a1)>Math.PI?1:0;
+    const color=i<filled?'#ffb347':'#ffe3c3';
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`);
+    path.setAttribute('fill',color); path.setAttribute('stroke','#d07a2a'); path.setAttribute('stroke-width','1.2');
+    svg.appendChild(path);
+  }
+  const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',18);c.setAttribute('fill','#ffd86d');c.setAttribute('stroke','#d07a2a');
+  svg.appendChild(c);
+}
+
+function newRound(){
+  if(state.round>state.maxRounds){endGame();return}
+  state.questionActive=true;
+  el('next').style.display='none';
+  el('feedback').textContent=''; el('feedback').className='feedback';
+  const d=sets[Math.floor(Math.random()*sets.length)];
+  const n=Math.floor(Math.random()*(d-1))+1;
+  state.answer=simplify(n,d);
+  drawPizza(d,n);
+  el('ask').textContent=`Pedido: servir exatamente ${formatFraction(n,d)} da pizza`;
+
+  const options=new Set([state.answer]);
+  while(options.size<4){
+    const od=sets[Math.floor(Math.random()*sets.length)];
+    const on=Math.floor(Math.random()*(od-1))+1;
+    options.add(simplify(on,od));
+  }
+  const arr=[...options].sort(()=>Math.random()-0.5);
+  el('opts').innerHTML='';
+  arr.forEach(v=>{
+    const b=document.createElement('button'); b.textContent=v;
+    b.onclick=()=>check(v);
+    el('opts').appendChild(b);
+  });
+  updateHud();
+}
+
+function check(v){
+  state.questionActive=false;
+  [...el('opts').children].forEach(b=>b.disabled=true);
+  if(v===state.answer){
+    state.combo++; const gain=10+Math.min(state.combo*2,10); state.score+=gain;
+    el('feedback').textContent=`✅ Boa! +${gain} pontos`; el('feedback').classList.add('ok');
+  } else {
+    state.combo=0; state.score=Math.max(0,state.score-4);
+    el('feedback').textContent=`❌ Quase! Resposta correta: ${state.answer}`; el('feedback').classList.add('bad');
+  }
+  state.round++; updateHud();
+  if(state.round<=state.maxRounds){el('next').style.display='inline-block';}
+  else endGame();
+}
+
+function updateHud(){
+  el('round').textContent=`${Math.min(state.round,state.maxRounds)}/${state.maxRounds}`;
+  el('score').textContent=state.score;
+  el('combo').textContent=`${state.combo}🔥`;
+  el('time').textContent=`${state.time}s`;
+  const done=((Math.min(state.round-1,state.maxRounds))/state.maxRounds)*100;
+  el('bar').style.width=`${done}%`;
+}
+
+function startTimer(){
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    if(state.over||!state.playing||!state.questionActive)return;
+    state.time--; updateHud();
+    if(state.time<=0){state.over=true; endGame(true)}
+  },1000)
+}
+
+function endGame(timeout=false){
+  state.over=true; state.questionActive=false; clearInterval(timer);
+  el('opts').innerHTML='';
+  drawPizza(8,0);
+  const msg=timeout?'⏰ Tempo esgotado!':'🏁 Fim do expediente!';
+  el('ask').textContent=`${msg} Pontuação final: ${state.score}`;
+  el('feedback').textContent=state.score>=70?'⭐ Mestre Pizzaiolo das Frações!':'Mandou bem! Jogue de novo e tente bater seu recorde.';
+  el('feedback').className='feedback ok';
+  el('next').style.display='none';
+  el('restart').style.display='inline-block';
+}
+
+function resetGame(){
+  state={round:1,maxRounds:8,score:0,combo:0,time:45,over:false,answer:null,playing:true,questionActive:false};
+  el('restart').style.display='none';
+  el('start').style.display='none';
+  updateHud();
+  startTimer();
+  newRound();
+}
+
+el('start').onclick=resetGame;
+el('next').onclick=()=>newRound();
+el('restart').onclick=resetGame;
+
+drawPizza(4,2);
+updateHud();
+</script>
+</body>
+</html>

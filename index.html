@@ -124,7 +124,7 @@
       <div class="progress"><div class="bar" id="bar"></div></div>
 
       <div class="game">
-        <svg class="pizza" viewBox="0 0 200 200" id="pizza"></svg>
+        <svg class="pizza" viewBox="0 0 200 200" width="200" height="200" preserveAspectRatio="xMidYMid meet" id="pizza"></svg>
         <div class="game-panel">
           <div class="prompt-slot" id="promptSlot" aria-live="polite">
             <div class="ask" id="ask">Escolha um modo e clique em <b>Começar partida</b>.</div>
@@ -196,25 +196,53 @@ function applyTheme(id){
 function drawPizza(total,filled,selected=[],onSliceClick=null){
   const svg=el('pizza'); svg.innerHTML='';
   const cx=100,cy=100,r=85;
+  svg.setAttribute('viewBox','0 0 200 200');
+  svg.setAttribute('width','200');
+  svg.setAttribute('height','200');
+  svg.setAttribute('preserveAspectRatio','xMidYMid meet');
+
+  const base=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  base.setAttribute('cx',cx);
+  base.setAttribute('cy',cy);
+  base.setAttribute('r',r);
+  base.setAttribute('fill','var(--slice-empty)');
+  base.setAttribute('stroke','var(--crust)');
+  base.setAttribute('stroke-width','1.4');
+  svg.appendChild(base);
+
   for(let i=0;i<total;i++){
     const a1=(i/total)*Math.PI*2-Math.PI/2, a2=((i+1)/total)*Math.PI*2-Math.PI/2;
     const x1=cx+r*Math.cos(a1), y1=cy+r*Math.sin(a1), x2=cx+r*Math.cos(a2), y2=cy+r*Math.sin(a2);
     const large=(a2-a1)>Math.PI?1:0;
     const active = selected.length ? selected.includes(i) : i<filled;
-    const color=active?'var(--slice-filled)':'var(--slice-empty)';
+
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');
     path.setAttribute('d',`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`);
-    path.setAttribute('fill',color); path.setAttribute('stroke','var(--crust)'); path.setAttribute('stroke-width','1.2');
+    path.setAttribute('fill',active?'var(--slice-filled)':'transparent');
+    path.setAttribute('stroke','none');
     path.classList.add('pizza-slice');
     if(active) path.classList.add('selected');
     if(typeof onSliceClick==='function'){
       path.classList.add('selectable');
+      path.style.pointerEvents='auto';
       path.addEventListener('click',()=>onSliceClick(i));
     }
     svg.appendChild(path);
+
+    const divider=document.createElementNS('http://www.w3.org/2000/svg','line');
+    divider.setAttribute('x1',cx);
+    divider.setAttribute('y1',cy);
+    divider.setAttribute('x2',x1);
+    divider.setAttribute('y2',y1);
+    divider.setAttribute('stroke','var(--crust)');
+    divider.setAttribute('stroke-width','1.2');
+    divider.setAttribute('pointer-events','none');
+    svg.appendChild(divider);
   }
+
   const c=document.createElementNS('http://www.w3.org/2000/svg','circle');
   c.setAttribute('cx',cx);c.setAttribute('cy',cy);c.setAttribute('r',18);c.setAttribute('fill','var(--center)');c.setAttribute('stroke','var(--crust)');
+  c.setAttribute('pointer-events','none');
   svg.appendChild(c);
 }
 

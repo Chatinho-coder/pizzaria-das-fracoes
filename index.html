@@ -116,8 +116,8 @@
       </div>
       <div class="compact">
         <details class="panel">
-          <summary id="panelSummary">Painel da partida · 1/8 · 60s</summary>
-          <p><b id="cRound">1/8</b> · <b id="cScore">0 pts</b> · <b id="cTime">60s</b> · XP <b id="cXp">0</b></p>
+          <summary id="panelSummary">Painel da partida · Descobrir · 1/8 · 60s</summary>
+          <p><b id="cMode">Descobrir</b> · <b id="cRound">1/8</b> · <b id="cScore">0 pts</b> · <b id="cTime">60s</b> · XP <b id="cXp">0</b></p>
         </details>
       </div>
 
@@ -135,6 +135,7 @@
               <div class="opts" id="opts"></div>
             </div>
             <button id="cutPizza" style="display:none">Cortar (+1 fatia)</button>
+            <button id="removeSlice" style="display:none" disabled>Remover fatia</button>
             <button class="cta" id="checkBuild" style="display:none">Conferir montagem</button>
             <button class="cta" id="next" style="display:none">Próxima rodada</button>
             <button class="cta" id="restart" style="display:none">Jogar de novo</button>
@@ -258,11 +259,12 @@ function updateHud(){
   el('combo').textContent=`${state.combo}🔥`;
   el('time').textContent=`${state.time}s`;
   el('xp').textContent=state.xp;
+  el('cMode').textContent=modes[state.mode];
   el('cRound').textContent=el('round').textContent;
   el('cScore').textContent=`${state.score} pts`;
   el('cTime').textContent=`${state.time}s`;
   el('cXp').textContent=state.xp;
-  el('panelSummary').textContent=`Painel da partida · ${el('round').textContent} · ${state.time}s`;
+  el('panelSummary').textContent=`Painel da partida · ${modes[state.mode]} · ${el('round').textContent} · ${state.time}s`;
   const done=((Math.min(state.round-1,state.maxRounds))/state.maxRounds)*100;
   el('bar').style.width=`${done}%`;
 }
@@ -299,6 +301,11 @@ function startRoundA(){
   });
 }
 
+function updateModeBControls(){
+  if(state.mode!=='B' || !state.current) return;
+  el('removeSlice').disabled=state.current.pieces<=1;
+}
+
 function renderModeBPizza(){
   const cur=state.current;
   drawPizza(cur.pieces,0,cur.selected,(sliceIndex)=>{
@@ -309,6 +316,7 @@ function renderModeBPizza(){
     cur.selected.sort((a,b)=>a-b);
     renderModeBPizza();
   });
+  updateModeBControls();
 }
 
 function startRoundB(){
@@ -316,10 +324,12 @@ function startRoundB(){
   state.current={...f,pieces:1,selected:[]};
   state.answer=f.s;
   renderModeBPizza();
-  showPrompt(`Monte esta fração: <b>${f.n}/${f.d}</b><br><small>1) Toque em <b>Cortar</b> até ter ${f.d} fatias.<br>2) Toque nas fatias para selecionar ${f.n}.</small>`, true);
+  showPrompt(`Monte esta fração: <b>${f.n}/${f.d}</b><br><small>Corte e selecione as fatias que representam a fração.</small>`, true);
   setOptionLayout(0);
   el('cutPizza').style.display='inline-block';
+  el('removeSlice').style.display='inline-block';
   el('checkBuild').style.display='inline-block';
+  updateModeBControls();
 }
 
 function equivalentOptions(n,d){
@@ -359,6 +369,7 @@ function hideRoundUi(){
   el('opts').innerHTML='';
   setOptionLayout(0);
   el('cutPizza').style.display='none';
+  el('removeSlice').style.display='none';
   el('checkBuild').style.display='none';
 }
 
@@ -376,7 +387,7 @@ function newRound(){
 function feedbackExplanation(){
   if(!state.current) return '';
   if(state.mode==='A') return `A pizza destacada representa ${state.current.n}/${state.current.d}.`;
-  if(state.mode==='B') return `A montagem correta era ${state.current.d} fatias com ${state.current.n} selecionadas.`;
+  if(state.mode==='B') return `A fração alvo era ${state.current.n}/${state.current.d}.`;
   return `A forma simplificada correta é ${simplify(state.current.n,state.current.d)}.`;
 }
 
@@ -416,8 +427,15 @@ function answerChoice(v){
 function cutPizza(){
   if(!state.questionActive||state.mode!=='B') return;
   const cur=state.current;
-  if(cur.pieces>=cur.d) return;
   cur.pieces+=1;
+  renderModeBPizza();
+}
+
+function removeSlice(){
+  if(!state.questionActive||state.mode!=='B') return;
+  const cur=state.current;
+  if(cur.pieces<=1) return;
+  cur.pieces-=1;
   cur.selected=cur.selected.filter(i=>i<cur.pieces);
   renderModeBPizza();
 }
@@ -425,7 +443,9 @@ function cutPizza(){
 function checkBuild(){
   if(!state.questionActive||state.mode!=='B') return;
   state.questionActive=false;
-  const correct = state.current.pieces===state.current.d && state.current.selected.length===state.current.n;
+  const builtFraction=simplify(state.current.selected.length,state.current.pieces);
+  const targetFraction=simplify(state.current.n,state.current.d);
+  const correct = builtFraction===targetFraction;
   reward(correct);
   state.round++; updateHud();
   if(state.round<=state.maxRounds) el('next').style.display='inline-block'; else endGame();
@@ -484,6 +504,7 @@ el('next').onclick=()=>newRound();
 el('restart').onclick=resetGame;
 el('leaveMatch').onclick=leaveMatch;
 el('cutPizza').onclick=cutPizza;
+el('removeSlice').onclick=removeSlice;
 el('checkBuild').onclick=checkBuild;
 document.querySelectorAll('.mode-btn').forEach(btn=>btn.onclick=()=>{if(state.playing&&!state.over) return; state.mode=btn.dataset.mode; renderModeButtons();});
 

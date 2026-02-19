@@ -9,11 +9,12 @@
       --bg:#fff8ef;--card:#ffffff;--text:#2b1d0e;--muted:#7a6856;--accent:#ff7a00;--ok:#1f9d55;--bad:#d64545;--line:#f1dfcd;
       --slice-filled:#ffb347;--slice-empty:#ffe3c3;--crust:#d07a2a;--center:#ffd86d;
     }
-    *{box-sizing:border-box}
+    *,*::before,*::after{box-sizing:border-box;max-width:100%}
+    html,body{width:100%;max-width:100%;overflow-x:hidden}
     body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:linear-gradient(180deg,#fff8ef 0%,#ffeeda 100%);color:var(--text)}
-    body.match-active.mobile-lock{overflow:hidden;touch-action:manipulation;height:100dvh}
-    .wrap{max-width:980px;margin:0 auto;padding:16px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.06)}
+    body.match-active.mobile-lock{overflow:hidden;overflow-x:hidden;touch-action:manipulation;height:100dvh}
+    .wrap{width:100%;max-width:980px;margin:0 auto;padding:16px;overflow-x:hidden}
+    .card{width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.06);overflow-x:hidden}
     h1{margin:0 0 6px;font-size:clamp(1.35rem,2vw,1.9rem)}
     .sub{margin:0;color:var(--muted)}
     .intro{display:flex;gap:10px;align-items:center;margin:12px 0 8px;padding:10px;border:1px dashed #efc9a4;border-radius:12px;background:#fff9f2}
@@ -26,9 +27,10 @@
     .chip b{display:block;font-size:1.05rem}
     .progress{height:8px;background:#ffe5cc;border-radius:999px;overflow:hidden;margin:8px 0 10px}
     .bar{height:100%;width:0;background:linear-gradient(90deg,#ff9d3f,#ff7a00)}
-    .game{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:center;min-height:430px}
-    .pizza{width:min(320px,80vw);aspect-ratio:1;margin:auto;display:block}
-    .ask{font-size:1.1rem;margin-bottom:10px;font-weight:700}
+    .game{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:center;min-height:430px;width:100%}
+    .game-panel{min-width:0;width:100%}
+    .pizza{width:clamp(190px,46vw,320px);aspect-ratio:1;margin:auto;display:block}
+    .ask{font-size:1.1rem;margin-bottom:10px;font-weight:700;line-height:1.3}
     .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     button{padding:11px 12px;border-radius:12px;border:1px solid #efc9a4;background:#fff;cursor:pointer;font-weight:700}
     .cta{background:var(--accent);color:#fff;border:none}
@@ -45,13 +47,28 @@
     @media (max-width:780px){
       body.match-active .wrap{height:100dvh;padding:8px}
       body.match-active .card{height:calc(100dvh - 16px);display:flex;flex-direction:column;padding:10px}
-      body.match-active .game{grid-template-columns:1fr;gap:8px;min-height:0;flex:1;overflow:hidden}
-      body.match-active .pizza{width:min(58vw,230px)}
+      body.match-active .game{gap:8px;min-height:0;flex:1;overflow-y:auto;overflow-x:hidden}
+      body.match-active .pizza{width:clamp(180px,54vw,230px)}
       body.match-active .hud{display:none}
       body.match-active .compact{display:block}
       body.match-active .intro{display:none}
+      body.match-active .tips{display:none}
+      .mode-row{gap:6px}
+      .mode-btn{padding:9px 10px;font-size:.9rem;flex:1 1 150px}
+      .hud{grid-template-columns:repeat(3,minmax(0,1fr))}
+      .chip{font-size:.8rem;padding:7px}
       .opts{grid-template-columns:1fr}
       .build-grid{grid-template-columns:repeat(3,minmax(52px,1fr))}
+    }
+
+    @media (max-width:480px){
+      .wrap{padding:10px}
+      .card{padding:12px}
+      .game{grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;min-height:0}
+      .game-panel{display:flex;flex-direction:column;gap:8px}
+      .pizza{width:clamp(170px,62vw,250px)}
+      .ask{font-size:1rem;margin-bottom:6px}
+      .intro p{font-size:.86rem}
     }
   </style>
 </head>
@@ -91,7 +108,7 @@
 
       <div class="game">
         <svg class="pizza" viewBox="0 0 200 200" id="pizza"></svg>
-        <div>
+        <div class="game-panel">
           <div class="ask" id="ask">Escolha um modo e clique em <b>Começar partida</b>.</div>
           <div class="opts" id="opts"></div>
           <div class="build-grid" id="buildGrid" style="display:none"></div>
@@ -100,7 +117,7 @@
           <button class="cta" id="next" style="display:none">Próxima rodada</button>
           <button class="cta" id="restart" style="display:none">Jogar de novo</button>
           <p class="reward" id="reward"></p>
-          <p class="tips">Dica: compare visualmente o tamanho das partes, não só os números.</p>
+          <p class="tips">Dica rápida: compare o tamanho das fatias.</p>
         </div>
       </div>
     </section>

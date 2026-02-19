@@ -35,6 +35,7 @@
     .opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
     .opts.quad{grid-template-columns:repeat(2,minmax(0,1fr))}
     .answer-dock{display:flex;flex-direction:column;gap:8px}
+.answer-scroll{display:flex;flex-direction:column;gap:8px;min-height:0}
     button{padding:11px 12px;min-height:44px;border-radius:12px;border:1px solid #efc9a4;background:#fff;cursor:pointer;font-weight:700}
     .cta{background:var(--accent);color:#fff;border:none}
     .feedback{min-height:26px;font-weight:700;margin:0;line-height:1.35}
@@ -49,13 +50,15 @@
 
     @media (max-width:780px){
       body.match-active .wrap{height:100dvh;padding:8px}
-      body.match-active .card{height:calc(100dvh - 16px);display:flex;flex-direction:column;padding:10px}
+      body.match-active .card{min-height:calc(100dvh - 16px);height:auto;display:flex;flex-direction:column;padding:10px}
       body.match-active .mode-row{display:none}
-      body.match-active .game{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(220px,42dvh) minmax(0,1fr);gap:8px;min-height:0;flex:1;overflow:hidden}
-      body.match-active .pizza{width:clamp(180px,54vw,230px);align-self:center;justify-self:center}
+      body.match-active .game{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(150px,34dvh) minmax(0,1fr);gap:8px;min-height:0;flex:1;overflow:hidden}
+      body.match-active .pizza{width:clamp(148px,48vw,220px);align-self:center;justify-self:center}
       body.match-active .game-panel{display:flex;flex-direction:column;min-height:0;overflow:hidden}
-      body.match-active .prompt-slot{min-height:86px;padding:10px;margin-bottom:6px}
-      body.match-active .answer-dock{margin-top:auto;padding:10px;border:1px solid var(--line);border-radius:12px;background:#fffaf4}
+      body.match-active .prompt-slot{min-height:78px;padding:10px;margin-bottom:6px;flex-shrink:0}
+      body.match-active .answer-dock{margin-top:auto;display:grid;grid-template-rows:minmax(0,1fr) auto auto auto;gap:8px;min-height:210px;max-height:min(52dvh,420px);padding:10px 10px calc(env(safe-area-inset-bottom,0px) + 12px);border:1px solid var(--line);border-radius:12px;background:#fffaf4;overflow:hidden}
+      body.match-active .answer-scroll{overflow-y:auto;overscroll-behavior:contain;padding-right:2px}
+      body.match-active .answer-dock .cta{position:relative;z-index:1}
       body.match-active .opts{grid-template-columns:1fr}
       body.match-active .opts.quad{grid-template-columns:repeat(2,minmax(0,1fr))}
       body.match-active .build-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -75,7 +78,7 @@
       .wrap{padding:10px}
       .card{padding:12px}
       .game{grid-template-columns:minmax(0,1fr);gap:10px;align-items:start;min-height:0}
-      body.match-active .game{grid-template-rows:minmax(210px,40dvh) minmax(0,1fr)}
+      body.match-active .game{grid-template-rows:minmax(140px,30dvh) minmax(0,1fr)}
       .game-panel{display:flex;flex-direction:column;gap:8px}
       .pizza{width:clamp(170px,62vw,250px)}
       .prompt-slot{min-height:84px}
@@ -111,7 +114,7 @@
       </div>
       <div class="compact">
         <details class="panel">
-          <summary>Painel da partida</summary>
+          <summary id="panelSummary">Painel da partida · 1/8 · 60s</summary>
           <p><b id="cRound">1/8</b> · <b id="cScore">0 pts</b> · <b id="cTime">60s</b> · XP <b id="cXp">0</b></p>
         </details>
       </div>
@@ -126,8 +129,10 @@
             <p id="feedback" class="feedback" style="display:none"></p>
           </div>
           <div class="answer-dock" id="answerDock">
-            <div class="opts" id="opts"></div>
-            <div class="build-grid" id="buildGrid" style="display:none"></div>
+            <div class="answer-scroll" id="answerScroll">
+              <div class="opts" id="opts"></div>
+              <div class="build-grid" id="buildGrid" style="display:none"></div>
+            </div>
             <button class="cta" id="checkBuild" style="display:none">Conferir montagem</button>
             <button class="cta" id="next" style="display:none">Próxima rodada</button>
             <button class="cta" id="restart" style="display:none">Jogar de novo</button>
@@ -220,6 +225,7 @@ function updateHud(){
   el('cScore').textContent=`${state.score} pts`;
   el('cTime').textContent=`${state.time}s`;
   el('cXp').textContent=state.xp;
+  el('panelSummary').textContent=`Painel da partida · ${el('round').textContent} · ${state.time}s`;
   const done=((Math.min(state.round-1,state.maxRounds))/state.maxRounds)*100;
   el('bar').style.width=`${done}%`;
 }

@@ -136,7 +136,7 @@
             </div>
             <button id="cutPizza" style="display:none">Cortar (+1 fatia)</button>
             <button id="removeSlice" style="display:none" disabled>Remover fatia</button>
-            <button class="cta" id="checkBuild" style="display:none">Conferir montagem</button>
+            <button class="cta" id="checkBuild" style="display:none">Confirmar Montagem</button>
             <button class="cta" id="next" style="display:none">Próxima rodada</button>
             <button class="cta" id="restart" style="display:none">Jogar de novo</button>
             <button id="leaveMatch" style="display:none">Sair da partida</button>
@@ -443,9 +443,15 @@ function removeSlice(){
 function checkBuild(){
   if(!state.questionActive||state.mode!=='B') return;
   state.questionActive=false;
-  const builtFraction=simplify(state.current.selected.length,state.current.pieces);
-  const targetFraction=simplify(state.current.n,state.current.d);
-  const correct = builtFraction===targetFraction;
+  
+  el('cutPizza').style.display='none';
+  el('removeSlice').style.display='none';
+  el('checkBuild').style.display='none';
+
+  const builtFraction=state.current.selected.length+'/'+state.current.pieces;
+  const targetFraction=state.current.n+'/'+state.current.d;
+  const correct = simplify(...builtFraction.split('/'))===simplify(...targetFraction.split('/'));
+  
   reward(correct);
   state.round++; updateHud();
   if(state.round<=state.maxRounds) el('next').style.display='inline-block'; else endGame();
